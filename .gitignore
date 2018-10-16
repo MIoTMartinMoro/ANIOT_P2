@@ -3,4 +3,6 @@
 *.s
 *.a
 *.map
-obj_native
+*.elf
+.native
+obj_*
