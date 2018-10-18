@@ -43,8 +43,8 @@ PROCESS(process1, "Event Timer deadline 4 segs");
 PROCESS(process2, "Callback Timer deadline 5 segs");
 AUTOSTART_PROCESSES(&process1, &process2);
 
-static int contador1;
-static int contador2;
+static int contador1=0;
+static int contador2=0;
 
 static struct ctimer timer_ctimer;
 static struct etimer timer_etimer;
@@ -54,9 +54,8 @@ do_timeout1(process_event_t event)
 {
   if(event==process_event_p2a1){
     contador1++;
-    printf("--Proceso1 ha recibido: %d eventos del proceso 2\n", contador1);
+    printf("Proceso1 ha recibido: %d\n", contador1);
   }else if(event==PROCESS_EVENT_TIMER){
-    printf("ETIMER Timeout1 envia evento al proceso 2\n");
     process_post_synch(&process2, process_event_p1a2, NULL);
     etimer_reset(&timer_etimer);  
   }
@@ -65,7 +64,6 @@ do_timeout1(process_event_t event)
 void
 do_timeout2()
 {
-  printf("CTIMER Timeout2 envia evento al proceso 1 \n");
   process_post(&process1, process_event_p2a1, NULL);
   ctimer_reset(&timer_ctimer);
 }
@@ -74,7 +72,7 @@ do_timeout3(process_event_t event)
 {
   if(event==process_event_p1a2){
     contador2++;
-    printf("--Proceso2 ha recibido: %d eventos del proceso 1\n", contador2);
+    printf("Proceso2 ha recibido: %d\n", contador2);
   }
 }
 /*---------------------------------------------------------------------------*/
@@ -85,12 +83,10 @@ PROCESS_THREAD(process1, ev, data)
   PROCESS_BEGIN();
 
   process_event_p1a2 = process_alloc_event();
-
+  etimer_set(&timer_etimer, 4 * CLOCK_SECOND);
   while(1) {
-    etimer_set(&timer_etimer, 4 * CLOCK_SECOND);
-    PROCESS_WAIT_EVENT_UNTIL(ev==process_event_p2a1 || ev== PROCESS_EVENT_TIMER);
-    do_timeout1(ev);
-    
+    PROCESS_WAIT_EVENT();
+    do_timeout1(ev);  
   }
 
   PROCESS_END();
@@ -101,12 +97,11 @@ PROCESS_THREAD(process2, ev, data)
   PROCESS_BEGIN();
 
   process_event_p2a1 = process_alloc_event();
-
+  ctimer_set(&timer_ctimer, 5 * CLOCK_SECOND, do_timeout2, NULL);
   while(1) {
-    ctimer_set(&timer_ctimer, 5 * CLOCK_SECOND, do_timeout2, NULL);
-    PROCESS_WAIT_EVENT_UNTIL(ev==process_event_p1a2); 
+    PROCESS_WAIT_EVENT(); 
     do_timeout3(ev);
-    PROCESS_YIELD();
+    //PROCESS_YIELD();
   }
 
   PROCESS_END();
