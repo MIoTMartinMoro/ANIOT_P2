@@ -54,8 +54,9 @@ do_timeout1(process_event_t event)
 {
   if(event==process_event_p2a1){
     contador1++;
-    printf("Proceso 1: %d\n", contador1);
+    printf("--Proceso1 ha recibido: %d eventos del proceso 2\n", contador1);
   }else if(event==PROCESS_EVENT_TIMER){
+    printf("ETIMER Timeout1 envia evento al proceso 2\n");
     process_post_synch(&process2, process_event_p1a2, NULL);
     etimer_reset(&timer_etimer);  
   }
@@ -64,6 +65,7 @@ do_timeout1(process_event_t event)
 void
 do_timeout2()
 {
+  printf("CTIMER Timeout2 envia evento al proceso 1 \n");
   process_post(&process1, process_event_p2a1, NULL);
   ctimer_reset(&timer_ctimer);
 }
@@ -72,7 +74,7 @@ do_timeout3(process_event_t event)
 {
   if(event==process_event_p1a2){
     contador2++;
-    printf("Proceso 2: %d\n", contador2);
+    printf("--Proceso2 ha recibido: %d eventos del proceso 1\n", contador2);
   }
 }
 /*---------------------------------------------------------------------------*/
@@ -104,6 +106,7 @@ PROCESS_THREAD(process2, ev, data)
     ctimer_set(&timer_ctimer, 5 * CLOCK_SECOND, do_timeout2, NULL);
     PROCESS_WAIT_EVENT_UNTIL(ev==process_event_p1a2); 
     do_timeout3(ev);
+    PROCESS_YIELD();
   }
 
   PROCESS_END();

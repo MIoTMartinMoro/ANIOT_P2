@@ -4,5 +4,5 @@
 *.a
 *.map
 *.elf
-.native
+*.native
 obj_*
