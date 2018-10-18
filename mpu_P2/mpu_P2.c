@@ -36,10 +36,45 @@
 #include "sys/timer.h"
 #include "sys/rtimer.h"
 
-static process_event_t process_event_p1a2;
-static process_event_t process_event_p2a1;
+#include "contiki.h"
+#include "sys/etimer.h"
+#include "sys/ctimer.h"
+#include "dev/leds.h"
+#include "dev/watchdog.h"
+#include "random.h"
+#include "button-sensor.h"
+#include "batmon-sensor.h"
+#include "board-peripherals.h"
+#include "rf-core/rf-ble.h"
 
-PROCESS(process1, "Event Timer deadline 4 segs");
+#include "ti-lib.h"
+
+#include <stdio.h>
+#include <stdint.h>
+
+
+/*---------------------------------------------------------------------------*/
+#define CC26XX_DEMO_LOOP_INTERVAL       (CLOCK_SECOND * 20)
+#define CC26XX_DEMO_LEDS_PERIODIC       LEDS_YELLOW
+#define CC26XX_DEMO_LEDS_BUTTON         LEDS_RED
+#define CC26XX_DEMO_LEDS_REBOOT         LEDS_ALL
+/*---------------------------------------------------------------------------*/
+#define CC26XX_DEMO_SENSOR_NONE         (void *)0xFFFFFFFF
+
+#define CC26XX_DEMO_SENSOR_1     &button_left_sensor
+#define CC26XX_DEMO_SENSOR_2     &button_right_sensor
+
+#if BOARD_SENSORTAG
+#define CC26XX_DEMO_SENSOR_3     CC26XX_DEMO_SENSOR_NONE
+#define CC26XX_DEMO_SENSOR_4     CC26XX_DEMO_SENSOR_NONE
+#define CC26XX_DEMO_SENSOR_5     &reed_relay_sensor
+#endif
+
+
+static process_event_t process_event_p1a2;
+static process_event_t evento_imprime;
+
+PROCESS(process1, "Lee cada 5 segundos el sensor MPU");
 PROCESS(process2, "Callback Timer deadline 5 segs");
 AUTOSTART_PROCESSES(&process1, &process2);
 
@@ -49,29 +84,69 @@ static int contador2=0;
 static struct ctimer timer_ctimer;
 static struct etimer timer_etimer;
 
-void
-do_timeout1(process_event_t event)
+#if BOARD_SENSORTAG
+
+#define SENSOR_READING_PERIOD (CLOCK_SECOND * 20)
+#define SENSOR_READING_RANDOM (CLOCK_SECOND << 4)
+
+static void init_mpu_reading(void *not_used);
+/*---------------------------------------------------------------------------*/
+static void
+print_mpu_reading(int reading)
 {
-  if(event==process_event_p2a1){
-    contador1++;
-    printf("Proceso1 ha recibido: %d\n", contador1);
-  }else if(event==PROCESS_EVENT_TIMER){
-    process_post_synch(&process2, process_event_p1a2, NULL);
-    etimer_reset(&timer_etimer);  
+  if(reading < 0) {
+    printf("-");
+    reading = -reading;
   }
+
+  printf("%d.%02d", reading / 100, reading % 100);
+}
+/*---------------------------------------------------------------------------*/
+static void
+get_mpu_reading(int valores[])
+{
+  int value;
+  clock_time_t next = SENSOR_READING_PERIOD +
+    (random_rand() % SENSOR_READING_RANDOM);
+
+  
+  valores[0] = mpu_9250_sensor.value(MPU_9250_SENSOR_TYPE_GYRO_X);
+  valores[1] = mpu_9250_sensor.value(MPU_9250_SENSOR_TYPE_GYRO_Y);
+  valores[2] = mpu_9250_sensor.value(MPU_9250_SENSOR_TYPE_GYRO_Z);
+  valores[3] = mpu_9250_sensor.value(MPU_9250_SENSOR_TYPE_ACC_X);
+  valores[4] = mpu_9250_sensor.value(MPU_9250_SENSOR_TYPE_ACC_Y);
+  valores[5] = mpu_9250_sensor.value(MPU_9250_SENSOR_TYPE_ACC_Z);
+  
+
+  SENSORS_DEACTIVATE(mpu_9250_sensor);
+}
+/*---------------------------------------------------------------------------*/
+static void
+init_mpu_reading(void *not_used)
+{
+  mpu_9250_sensor.configure(SENSORS_ACTIVE, MPU_9250_SENSOR_TYPE_ALL);
+}
+#endif
+
+void
+send_event_read(process_event_t event)
+{
+  int valores[6];
+  get_mpu_reading(valores);
+  process_post(&process2, evento_imprime, valores);
+  ctimer_reset(&timer_ctimer);
 }
 /*---------------------------------------------------------------------------*/
 void
 do_timeout2()
 {
-  process_post(&process1, process_event_p2a1, NULL);
+  process_post(&process1, evento_imprime, NULL);
   ctimer_reset(&timer_ctimer);
 }
 void
 do_timeout3(process_event_t event)
 {
-  if(event==process_event_p1a2){
-    contador2++;
+  if(event==evento_imprime){
     printf("Proceso2 ha recibido: %d\n", contador2);
   }
 }
@@ -81,13 +156,9 @@ PROCESS_THREAD(process1, ev, data)
   
 
   PROCESS_BEGIN();
-
-  process_event_p1a2 = process_alloc_event();
-  etimer_set(&timer_etimer, 4 * CLOCK_SECOND);
-  while(1) {
-    PROCESS_WAIT_EVENT();
-    do_timeout1(ev);  
-  }
+  init_mpu_reading();
+  evento_imprime = process_alloc_event();
+  ctimer_set(&timer_ctimer, 5 * CLOCK_SECOND, send_event_read, NULL);
 
   PROCESS_END();
 }
@@ -96,12 +167,11 @@ PROCESS_THREAD(process2, ev, data)
 {
   PROCESS_BEGIN();
 
-  process_event_p2a1 = process_alloc_event();
-  ctimer_set(&timer_ctimer, 5 * CLOCK_SECOND, do_timeout2, NULL);
-  while(1) {
-    PROCESS_WAIT_EVENT(); 
-    do_timeout3(ev);
-    //PROCESS_YIELD();
+  if (ev == evento_imprime) {
+    int i;
+    for (i = 0; i < sizeof(data); i++) {
+      printf("%d\n", data[i]);
+    }
   }
 
   PROCESS_END();
