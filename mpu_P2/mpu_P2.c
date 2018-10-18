@@ -107,3 +107,45 @@ PROCESS_THREAD(process2, ev, data)
   PROCESS_END();
 }
 
+/*---------------------------------------------------------------------------*/
+static void
+get_mpu_reading()
+{
+  int value;
+  clock_time_t next = SENSOR_READING_PERIOD +
+    (random_rand() % SENSOR_READING_RANDOM);
+
+  printf("MPU Gyro: X=");
+  value = mpu_9250_sensor.value(MPU_9250_SENSOR_TYPE_GYRO_X);
+  print_mpu_reading(value);
+  printf(" deg/sec\n");
+
+  printf("MPU Gyro: Y=");
+  value = mpu_9250_sensor.value(MPU_9250_SENSOR_TYPE_GYRO_Y);
+  print_mpu_reading(value);
+  printf(" deg/sec\n");
+
+  printf("MPU Gyro: Z=");
+  value = mpu_9250_sensor.value(MPU_9250_SENSOR_TYPE_GYRO_Z);
+  print_mpu_reading(value);
+  printf(" deg/sec\n");
+
+  printf("MPU Acc: X=");
+  value = mpu_9250_sensor.value(MPU_9250_SENSOR_TYPE_ACC_X);
+  print_mpu_reading(value);
+  printf(" G\n");
+
+  printf("MPU Acc: Y=");
+  value = mpu_9250_sensor.value(MPU_9250_SENSOR_TYPE_ACC_Y);
+  print_mpu_reading(value);
+  printf(" G\n");
+
+  printf("MPU Acc: Z=");
+  value = mpu_9250_sensor.value(MPU_9250_SENSOR_TYPE_ACC_Z);
+  print_mpu_reading(value);
+  printf(" G\n");
+
+  SENSORS_DEACTIVATE(mpu_9250_sensor);
+
+  ctimer_set(&mpu_timer, next, init_mpu_reading, NULL);
+}
