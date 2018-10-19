@@ -89,7 +89,6 @@ static struct etimer timer_etimer;
 #define SENSOR_READING_PERIOD (CLOCK_SECOND * 20)
 #define SENSOR_READING_RANDOM (CLOCK_SECOND << 4)
 
-static void init_mpu_reading(void *not_used);
 /*---------------------------------------------------------------------------*/
 static void
 print_mpu_reading(int reading)
@@ -105,20 +104,23 @@ print_mpu_reading(int reading)
 static void
 get_mpu_reading(int valores[])
 {
-  int value;
-  clock_time_t next = SENSOR_READING_PERIOD +
-    (random_rand() % SENSOR_READING_RANDOM);
 
-  
+printf("Entra a leer\n");
   valores[0] = mpu_9250_sensor.value(MPU_9250_SENSOR_TYPE_GYRO_X);
   valores[1] = mpu_9250_sensor.value(MPU_9250_SENSOR_TYPE_GYRO_Y);
   valores[2] = mpu_9250_sensor.value(MPU_9250_SENSOR_TYPE_GYRO_Z);
+  // Creo que solo nos interesan los tres de  abajo
   valores[3] = mpu_9250_sensor.value(MPU_9250_SENSOR_TYPE_ACC_X);
   valores[4] = mpu_9250_sensor.value(MPU_9250_SENSOR_TYPE_ACC_Y);
   valores[5] = mpu_9250_sensor.value(MPU_9250_SENSOR_TYPE_ACC_Z);
   
+  printf("Valores[0]: %d\n", valores[0]);
+  printf("Valores[1]: %d\n", valores[1]);
+  printf("Valores[2]: %d\n", valores[2]);
+  printf("Valores[3]: %d\n", valores[3]);
+  printf("Valores[4]: %d\n", valores[4]);
+  printf("Valores[5]: %d\n", valores[5]);
 
-  SENSORS_DEACTIVATE(mpu_9250_sensor);
 }
 /*---------------------------------------------------------------------------*/
 static void
@@ -129,8 +131,9 @@ init_mpu_reading(void *not_used)
 #endif
 
 void
-send_event_read(process_event_t event)
+send_event_read()
 {
+  printf("Entra al evento\n");
   int valores[6];
   get_mpu_reading(valores);
   process_post(&process2, evento_imprime, valores);
@@ -156,11 +159,13 @@ PROCESS_THREAD(process1, ev, data)
   
 
   PROCESS_BEGIN();
-  init_mpu_reading();
+  init_mpu_reading(NULL);
   evento_imprime = process_alloc_event();
   ctimer_set(&timer_ctimer, 5 * CLOCK_SECOND, send_event_read, NULL);
 
   PROCESS_END();
+
+  SENSORS_DEACTIVATE(mpu_9250_sensor);
 }
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(process2, ev, data)
@@ -169,53 +174,10 @@ PROCESS_THREAD(process2, ev, data)
 
   if (ev == evento_imprime) {
     int i;
-    for (i = 0; i < sizeof(data); i++) {
+    /*for (i = 0; i < sizeof(data); i++) {
       printf("%d\n", data[i]);
-    }
+    }*/
   }
 
   PROCESS_END();
-}
-
-/*---------------------------------------------------------------------------*/
-static void
-get_mpu_reading()
-{
-  int value;
-  clock_time_t next = SENSOR_READING_PERIOD +
-    (random_rand() % SENSOR_READING_RANDOM);
-
-  printf("MPU Gyro: X=");
-  value = mpu_9250_sensor.value(MPU_9250_SENSOR_TYPE_GYRO_X);
-  print_mpu_reading(value);
-  printf(" deg/sec\n");
-
-  printf("MPU Gyro: Y=");
-  value = mpu_9250_sensor.value(MPU_9250_SENSOR_TYPE_GYRO_Y);
-  print_mpu_reading(value);
-  printf(" deg/sec\n");
-
-  printf("MPU Gyro: Z=");
-  value = mpu_9250_sensor.value(MPU_9250_SENSOR_TYPE_GYRO_Z);
-  print_mpu_reading(value);
-  printf(" deg/sec\n");
-
-  printf("MPU Acc: X=");
-  value = mpu_9250_sensor.value(MPU_9250_SENSOR_TYPE_ACC_X);
-  print_mpu_reading(value);
-  printf(" G\n");
-
-  printf("MPU Acc: Y=");
-  value = mpu_9250_sensor.value(MPU_9250_SENSOR_TYPE_ACC_Y);
-  print_mpu_reading(value);
-  printf(" G\n");
-
-  printf("MPU Acc: Z=");
-  value = mpu_9250_sensor.value(MPU_9250_SENSOR_TYPE_ACC_Z);
-  print_mpu_reading(value);
-  printf(" G\n");
-
-  SENSORS_DEACTIVATE(mpu_9250_sensor);
-
-  ctimer_set(&mpu_timer, next, init_mpu_reading, NULL);
 }
