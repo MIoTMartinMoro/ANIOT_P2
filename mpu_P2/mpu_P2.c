@@ -66,8 +66,6 @@
 
 static process_event_t evento_imprime;
 
-int valores[3];
-
 PROCESS(process1, "Lee cada 5 segundos el sensor MPU");
 PROCESS(process2, "Callback Timer deadline 5 segs");
 AUTOSTART_PROCESSES(&process1, &process2);
@@ -95,7 +93,7 @@ print_mpu_reading(char* eje, int reading)
 }
 
 static void
-get_mpu_reading()
+get_mpu_reading(int valores[])
 {
   valores[0] = mpu_9250_sensor.value(MPU_9250_SENSOR_TYPE_ACC_X);
   valores[1] = mpu_9250_sensor.value(MPU_9250_SENSOR_TYPE_ACC_Y);
@@ -113,13 +111,14 @@ init_mpu_reading(void *not_used)
 void
 send_event_read()
 {
-  get_mpu_reading();
-  process_post(&process2, evento_imprime, NULL);
+  int valores[3];
+  get_mpu_reading(valores);
+  process_post(&process2, evento_imprime, (void*)valores);
   ctimer_reset(&timer_ctimer);
 }
 
 void
-printAndLeds()
+printAndLeds(int valores[])
 {
   print_mpu_reading("X", valores[0]);
   print_mpu_reading("Y", valores[1]);
@@ -154,7 +153,9 @@ PROCESS_THREAD(process2, ev, data)
 
   while (1) {
     PROCESS_WAIT_EVENT_UNTIL(ev == evento_imprime);
-    printAndLeds();
+    int* val = (int*)data;
+    printf("Valor X: %d\n", val[0]);
+    printAndLeds((int*)data);
   }
 
   PROCESS_END();
