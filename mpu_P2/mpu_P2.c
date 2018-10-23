@@ -70,57 +70,42 @@
 #define CC26XX_DEMO_SENSOR_5     &reed_relay_sensor
 #endif
 
-
-static process_event_t process_event_p1a2;
 static process_event_t evento_imprime;
+
+int valores[3];
 
 PROCESS(process1, "Lee cada 5 segundos el sensor MPU");
 PROCESS(process2, "Callback Timer deadline 5 segs");
 AUTOSTART_PROCESSES(&process1, &process2);
 
-static int contador1=0;
-static int contador2=0;
-
 static struct ctimer timer_ctimer;
-static struct etimer timer_etimer;
 
 #if BOARD_SENSORTAG
 
 #define SENSOR_READING_PERIOD (CLOCK_SECOND * 20)
 #define SENSOR_READING_RANDOM (CLOCK_SECOND << 4)
 
+
 /*---------------------------------------------------------------------------*/
 static void
-print_mpu_reading(int reading)
+print_mpu_reading(char* eje, int reading)
 {
+  printf("Valor %s: ", eje);
+
   if(reading < 0) {
     printf("-");
     reading = -reading;
   }
 
-  printf("%d.%02d", reading / 100, reading % 100);
+  printf("%d.%02d\n", reading / 100, reading % 100);
 }
-/*---------------------------------------------------------------------------*/
+
 static void
-get_mpu_reading(int valores[])
+get_mpu_reading()
 {
-
-printf("Entra a leer\n");
-  valores[0] = mpu_9250_sensor.value(MPU_9250_SENSOR_TYPE_GYRO_X);
-  valores[1] = mpu_9250_sensor.value(MPU_9250_SENSOR_TYPE_GYRO_Y);
-  valores[2] = mpu_9250_sensor.value(MPU_9250_SENSOR_TYPE_GYRO_Z);
-  // Creo que solo nos interesan los tres de  abajo
-  valores[3] = mpu_9250_sensor.value(MPU_9250_SENSOR_TYPE_ACC_X);
-  valores[4] = mpu_9250_sensor.value(MPU_9250_SENSOR_TYPE_ACC_Y);
-  valores[5] = mpu_9250_sensor.value(MPU_9250_SENSOR_TYPE_ACC_Z);
-  
-  printf("Valores[0]: %d\n", valores[0]);
-  printf("Valores[1]: %d\n", valores[1]);
-  printf("Valores[2]: %d\n", valores[2]);
-  printf("Valores[3]: %d\n", valores[3]);
-  printf("Valores[4]: %d\n", valores[4]);
-  printf("Valores[5]: %d\n", valores[5]);
-
+  valores[0] = mpu_9250_sensor.value(MPU_9250_SENSOR_TYPE_ACC_X);
+  valores[1] = mpu_9250_sensor.value(MPU_9250_SENSOR_TYPE_ACC_Y);
+  valores[2] = mpu_9250_sensor.value(MPU_9250_SENSOR_TYPE_ACC_Z);
 }
 /*---------------------------------------------------------------------------*/
 static void
@@ -130,34 +115,32 @@ init_mpu_reading(void *not_used)
 }
 #endif
 
+/*---------------------------------------------------------------------------*/
 void
 send_event_read()
 {
-  printf("Entra al evento\n");
-  int valores[6];
-  get_mpu_reading(valores);
-  process_post(&process2, evento_imprime, valores);
+  get_mpu_reading();
+  process_post(&process2, evento_imprime, NULL);
   ctimer_reset(&timer_ctimer);
 }
-/*---------------------------------------------------------------------------*/
+
 void
-do_timeout2()
+imprimir()
 {
-  process_post(&process1, evento_imprime, NULL);
-  ctimer_reset(&timer_ctimer);
-}
-void
-do_timeout3(process_event_t event)
-{
-  if(event==evento_imprime){
-    printf("Proceso2 ha recibido: %d\n", contador2);
+  print_mpu_reading("X", valores[0]);
+  print_mpu_reading("Y", valores[1]);
+  print_mpu_reading("Z", valores[2]);
+
+
+  if (valores[2] > 0) {
+    printf("El sensor esta boca arriba\n");
+  } else {
+    printf("El sensor esta boca abajo\n");
   }
 }
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(process1, ev, data)
 {
-  
-
   PROCESS_BEGIN();
   init_mpu_reading(NULL);
   evento_imprime = process_alloc_event();
@@ -172,11 +155,9 @@ PROCESS_THREAD(process2, ev, data)
 {
   PROCESS_BEGIN();
 
-  if (ev == evento_imprime) {
-    int i;
-    /*for (i = 0; i < sizeof(data); i++) {
-      printf("%d\n", data[i]);
-    }*/
+  while (1) {
+    PROCESS_WAIT_EVENT_UNTIL(ev == evento_imprime);
+    imprimir();
   }
 
   PROCESS_END();
