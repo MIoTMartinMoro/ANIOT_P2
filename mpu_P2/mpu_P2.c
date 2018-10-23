@@ -52,12 +52,6 @@
 #include <stdio.h>
 #include <stdint.h>
 
-
-/*---------------------------------------------------------------------------*/
-#define CC26XX_DEMO_LOOP_INTERVAL       (CLOCK_SECOND * 20)
-#define CC26XX_DEMO_LEDS_PERIODIC       LEDS_YELLOW
-#define CC26XX_DEMO_LEDS_BUTTON         LEDS_RED
-#define CC26XX_DEMO_LEDS_REBOOT         LEDS_ALL
 /*---------------------------------------------------------------------------*/
 #define CC26XX_DEMO_SENSOR_NONE         (void *)0xFFFFFFFF
 
@@ -125,17 +119,20 @@ send_event_read()
 }
 
 void
-imprimir()
+printAndLeds()
 {
   print_mpu_reading("X", valores[0]);
   print_mpu_reading("Y", valores[1]);
   print_mpu_reading("Z", valores[2]);
 
-
   if (valores[2] > 0) {
     printf("El sensor esta boca arriba\n");
+    leds_off(LEDS_RED);
+    leds_on(LEDS_GREEN);
   } else {
     printf("El sensor esta boca abajo\n");
+    leds_off(LEDS_GREEN);
+    leds_on(LEDS_RED);
   }
 }
 /*---------------------------------------------------------------------------*/
@@ -157,7 +154,7 @@ PROCESS_THREAD(process2, ev, data)
 
   while (1) {
     PROCESS_WAIT_EVENT_UNTIL(ev == evento_imprime);
-    imprimir();
+    printAndLeds();
   }
 
   PROCESS_END();
