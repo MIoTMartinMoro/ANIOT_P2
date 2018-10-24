@@ -93,7 +93,7 @@ print_mpu_reading(char* eje, int reading)
 }
 
 static void
-get_mpu_reading(int valores[])
+get_mpu_reading(int* valores)
 {
   valores[0] = mpu_9250_sensor.value(MPU_9250_SENSOR_TYPE_ACC_X);
   valores[1] = mpu_9250_sensor.value(MPU_9250_SENSOR_TYPE_ACC_Y);
@@ -111,7 +111,8 @@ init_mpu_reading(void *not_used)
 void
 send_event_read()
 {
-  int valores[3];
+  int* valores;
+  valores=(int*)malloc(sizeof(int)*3);
   get_mpu_reading(valores);
   process_post(&process2, evento_imprime, (void*)valores);
   ctimer_reset(&timer_ctimer);
@@ -155,7 +156,7 @@ PROCESS_THREAD(process2, ev, data)
     PROCESS_WAIT_EVENT_UNTIL(ev == evento_imprime);
     int* val = (int*)data;
     printf("Valor X: %d\n", val[0]);
-    printAndLeds((int*)data);
+    printAndLeds(val);
   }
 
   PROCESS_END();
