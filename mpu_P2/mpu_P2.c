@@ -28,17 +28,11 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <stdio.h>
-
 #include "contiki.h"
 #include "sys/etimer.h"
 #include "sys/stimer.h"
 #include "sys/timer.h"
 #include "sys/rtimer.h"
-
-#include "contiki.h"
-#include "sys/etimer.h"
-#include "sys/ctimer.h"
 #include "dev/leds.h"
 #include "dev/watchdog.h"
 #include "random.h"
@@ -46,6 +40,7 @@
 #include "batmon-sensor.h"
 #include "board-peripherals.h"
 #include "rf-core/rf-ble.h"
+#include "lib/memb.h"
 
 #include "ti-lib.h"
 
@@ -67,10 +62,16 @@
 static process_event_t evento_imprime;
 
 PROCESS(process1, "Lee cada 5 segundos el sensor MPU");
-PROCESS(process2, "Callback Timer deadline 5 segs");
+PROCESS(process2, "Imprime el valor del sensor MPU");
 AUTOSTART_PROCESSES(&process1, &process2);
 
 static struct ctimer timer_ctimer;
+typedef struct _ejes {
+  int x;
+  int y;
+  int z;
+} ejes;
+MEMB(valores, ejes, sizeof(int) * 3);
 
 #if BOARD_SENSORTAG
 
@@ -93,11 +94,11 @@ print_mpu_reading(char* eje, int reading)
 }
 
 static void
-get_mpu_reading(int* valores)
+get_mpu_reading(ejes* medida)
 {
-  valores[0] = mpu_9250_sensor.value(MPU_9250_SENSOR_TYPE_ACC_X);
-  valores[1] = mpu_9250_sensor.value(MPU_9250_SENSOR_TYPE_ACC_Y);
-  valores[2] = mpu_9250_sensor.value(MPU_9250_SENSOR_TYPE_ACC_Z);
+  medida->x = mpu_9250_sensor.value(MPU_9250_SENSOR_TYPE_ACC_X);
+  medida->y = mpu_9250_sensor.value(MPU_9250_SENSOR_TYPE_ACC_Y);
+  medida->z = mpu_9250_sensor.value(MPU_9250_SENSOR_TYPE_ACC_Z);
 }
 /*---------------------------------------------------------------------------*/
 static void
@@ -111,26 +112,27 @@ init_mpu_reading(void *not_used)
 void
 send_event_read()
 {
-  int* valores;
-  valores=(int*)malloc(sizeof(int)*3);
-  get_mpu_reading(valores);
-  process_post(&process2, evento_imprime, (void*)valores);
+  ejes* medida;
+  medida = memb_alloc(&valores);
+  get_mpu_reading(medida);
+  process_post(&process2, evento_imprime, (void*)medida);
+  memb_free(&valores, medida);
   ctimer_reset(&timer_ctimer);
 }
 
 void
-printAndLeds(int valores[])
+printAndLeds(ejes* valor)
 {
-  print_mpu_reading("X", valores[0]);
-  print_mpu_reading("Y", valores[1]);
-  print_mpu_reading("Z", valores[2]);
+  print_mpu_reading("X", valor->x);
+  print_mpu_reading("Y", valor->y);
+  print_mpu_reading("Z", valor->z);
 
-  if (valores[2] > 0) {
-    printf("El sensor esta boca arriba\n");
+  if (valor->z > 0) {
+    printf("El sensor esta boca arriba\n\n");
     leds_off(LEDS_RED);
     leds_on(LEDS_GREEN);
   } else {
-    printf("El sensor esta boca abajo\n");
+    printf("El sensor esta boca abajo\n\n");
     leds_off(LEDS_GREEN);
     leds_on(LEDS_RED);
   }
@@ -154,8 +156,7 @@ PROCESS_THREAD(process2, ev, data)
 
   while (1) {
     PROCESS_WAIT_EVENT_UNTIL(ev == evento_imprime);
-    int* val = (int*)data;
-    printf("Valor X: %d\n", val[0]);
+    ejes* val = (ejes*)data;
     printAndLeds(val);
   }
 
