@@ -128,12 +128,12 @@ printAndLeds(ejes* valor)
   print_mpu_reading("Y", valor->y);
   print_mpu_reading("Z", valor->z);
 
-  if (valor->z > 0) {
-    printf("El sensor esta boca arriba\n\n");
+  if (fabs(valor->x) < fabs(valor->y)) {
+    printf("El sensor esta vertical\n\n");
     leds_off(LEDS_RED);
     leds_on(LEDS_GREEN);
   } else {
-    printf("El sensor esta boca abajo\n\n");
+    printf("El sensor esta apaisado\n\n");
     leds_off(LEDS_GREEN);
     leds_on(LEDS_RED);
   }
