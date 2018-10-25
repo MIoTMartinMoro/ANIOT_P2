@@ -66,6 +66,7 @@ PROCESS(process2, "Imprime el valor del sensor MPU");
 AUTOSTART_PROCESSES(&process1, &process2);
 
 static struct ctimer timer_ctimer;
+static struct etimer timer_etimer;
 typedef struct _ejes {
   int x;
   int y;
@@ -155,9 +156,18 @@ PROCESS_THREAD(process2, ev, data)
   PROCESS_BEGIN();
 
   while (1) {
-    PROCESS_WAIT_EVENT_UNTIL(ev == evento_imprime);
-    ejes* val = (ejes*)data;
-    printAndLeds(val);
+    PROCESS_YIELD();
+    if (ev == evento_imprime) {
+      ejes* val = (ejes*)data;
+      printAndLeds(val);
+    } else if (ev == sensors_event) {
+      if (data == CC26XX_DEMO_SENSOR_1 || data == CC26XX_DEMO_SENSOR_2) {
+        leds_on(LEDS_ALL);
+        etimer_set(&timer_etimer, 3 * CLOCK_SECOND);
+        PROCESS_WAIT_EVENT_UNTIL(ev == PROCESS_EVENT_TIMER);
+        leds_off(LEDS_ALL); 
+      }
+    }
   }
 
   PROCESS_END();
